@@ -32,7 +32,7 @@ Cryptographic keys on YubiKey are [non-exportable](https://web.archive.org/web/2
    * [SSH](#ssh)
       + [MacOS](#macos)
       + [Windows](#windows)
-        + [WSL](#wsl)
+        - [WSL](#wsl)
       + [Replace agents](#replace-agents)
       + [Copy public key](#copy-public-key)
       + [Import SSH keys](#import-ssh-keys)
@@ -1375,26 +1375,26 @@ Get-PnpDevice -Class SoftwareDevice | Where-Object {$_.FriendlyName -like "*Yubi
 Yubico YubiKey OTP+FIDO+CCID 0
 ```
 
-Edit `%APPDATA%/gnupg/scdaemon.conf` to add:
+Edit `%APPDATA%\gnupg\scdaemon.conf` to add:
 
-```
+```plaintext
 reader-port "Yubico YubiKey OTP+FIDO+CCID 0"
 ```
 
-To avoid `invalid format` and `communication with agent failed` errors, configure GnuPG as the system OpenSSH agent source of truth. In `services.msc`, disable the `OpenSSH Authentication Agent` service so it does not compete with GnuPG for `\\.\pipe\openssh-ssh-agent`.
+Edit `%APPDATA%\gnupg\gpg-agent.conf` to add:
 
-Edit `%APPDATA%/gnupg/gpg-agent.conf` to add:
-
-```
+```plaintext
 enable-ssh-support
 enable-win32-openssh-support
 ```
 
 Set a [User Environment Variable](https://www.tenforums.com/tutorials/121855-edit-user-system-environment-variables-windows.html):
 
-```
+```plaintext
 SSH_AUTH_SOCK = \\.\pipe\openssh-ssh-agent
 ```
+
+To avoid `invalid format` and `communication with agent failed` errors, configure GnuPG as the system OpenSSH agent source of truth. In `services.msc`, disable the `OpenSSH Authentication Agent` service so it does not compete with GnuPG for `\\.\pipe\openssh-ssh-agent`.
 
 Restart gpg-agent:
 
@@ -1457,8 +1457,8 @@ flowchart TD
     subgraph Windows["Windows Host"]
         YK["YubiKey\n(OpenPGP)"]
         GPA["gpg-agent\n(GnuPG 2.4+)\nenable-win32-openssh-support"]
-        PIPE["Named pipe\n\\\\.\\pipe\\openssh-ssh-agent"]
-        WINCL["Windows OpenSSH / Git clients\n(SSH_AUTH_SOCK=\\\\.\\pipe\\openssh-ssh-agent)"]
+        PIPE["Named pipe\n\\.\pipe\openssh-ssh-agent"]
+        WINCL["Windows OpenSSH / Git clients\n(SSH_AUTH_SOCK=\\.\pipe\openssh-ssh-agent)"]
         YK --> GPA --> PIPE --> WINCL
     end
 
