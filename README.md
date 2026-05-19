@@ -1473,9 +1473,10 @@ if ! pgrep -f npiperelay.exe > /dev/null; then
 fi
 ```
 
-Reload your shell:
+Make sure the `.ssh` directory exists and reload your `bashrc` script:
 
 ```bash
+mkdir -p $HOME/.ssh
 source ~/.bashrc
 ```
 
