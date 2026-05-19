@@ -1379,19 +1379,41 @@ Edit `%APPDATA%/gnupg/scdaemon.conf` to add:
 reader-port <device name, e.g. Yubico YubiKey OTP+FIDO+CCID 0>
 ```
 
+To avoid `invalid format` and `communication with agent failed` errors, configure GnuPG as the system OpenSSH agent source of truth.
+
+Disable the `OpenSSH Authentication Agent` service in `services.msc` so it does not compete with GnuPG for `\\.\pipe\openssh-ssh-agent`.
+
 Edit `%APPDATA%/gnupg/gpg-agent.conf` to add:
 
 ```console
 enable-ssh-support
-enable-putty-support
+enable-win32-openssh-support
 ```
 
-Restart the agent:
+Set a User Environment Variable:
+
+```console
+SSH_AUTH_SOCK=\\.\pipe\openssh-ssh-agent
+```
+
+Force Git for Windows to use the system-native OpenSSH client:
+
+```powershell
+git config --global core.sshCommand "C:/Windows/System32/OpenSSH/ssh.exe"
+```
+
+Restart gpg-agent:
 
 ```console
 gpg-connect-agent killagent /bye
 
 gpg-connect-agent /bye
+```
+
+Verify the SSH agent has identities:
+
+```console
+ssh-add -L
 ```
 
 Verify YubiKey details:
@@ -1426,53 +1448,38 @@ PuTTY can now be used for public-key SSH authentication. When the server asks fo
 
 **WSL**
 
-The goal is to configure SSH client inside WSL work together with the Windows agent, such as gpg-agent.exe.
+The goal is to configure SSH inside WSL to use the Windows-hosted `gpg-agent.exe` through a relay.
 
 See the [WSL agent architecture](media/schema_gpg.png) illustration for an overview.
 
-GnuPG forwarding for cryptographic operations is not supported. See [vuori/weasel-pageant](https://github.com/vuori/weasel-pageant) for more information.
+WSL cannot natively consume Windows named pipes as Unix sockets, so bridge the Windows OpenSSH pipe into a WSL Unix socket with `socat` + `npiperelay.exe`.
 
-One way to forward is just `ssh -A` (still need to eval weasel to setup local ssh-agent), and only relies on OpenSSH. In this track, `ForwardAgent` and `AllowAgentForwarding` in ssh/sshd config may be involved. However, when using ssh socket forwarding, do not enable `ForwardAgent` in ssh config. See [SSH Agent Forwarding](#ssh-agent-forwarding) for more information. This requires Ubuntu 16.04 or newer for WSL and Kleopatra.
+Install `socat` in WSL and download [jstarks/npiperelay](https://github.com/jstarks/npiperelay/releases) to a Windows path, for example `C:\bin\npiperelay.exe`.
 
-Download [vuori/weasel-pageant](https://github.com/vuori/weasel-pageant).
+Add the following to `~/.bashrc` (update the `NPIPERELAY` path if needed):
 
-Add `eval $(/mnt/c/<path of extraction>/weasel-pageant -r -a /tmp/S.weasel-pageant)` to the shell rc file. Use a named socket here so it can be used in the `RemoteForward` directive of `~/.ssh/config`. Source it with `source ~/.bashrc`.
-
-Display the SSH key with `$ ssh-add -l`
-
-Edit `~/.ssh/config` to add the following for each agent forwarding host:
-
-```console
-RemoteForward <remote SSH socket path> /tmp/S.weasel-pageant
+```bash
+export SSH_AUTH_SOCK=$HOME/.ssh/agent.sock
+if ! pgrep -f npiperelay.exe > /dev/null; then
+    rm -f "$SSH_AUTH_SOCK"
+    NPIPERELAY="/mnt/c/bin/npiperelay.exe"
+    (setsid socat UNIX-LISTEN:"$SSH_AUTH_SOCK",fork EXEC:"$NPIPERELAY -ei -s //./pipe/openssh-ssh-agent",nofork &) >/dev/null 2>&1
+fi
 ```
 
-The remote SSH socket path can be found with `gpgconf --list-dirs agent-ssh-socket`
-
-Add the following to the shell rc file:
+Reload your shell:
 
 ```console
-export SSH_AUTH_SOCK=$(gpgconf --list-dirs agent-ssh-socket)
+source ~/.bashrc
 ```
 
-Add the following to `/etc/ssh/sshd_config`:
+Confirm the relay works:
 
 ```console
-StreamLocalBindUnlink yes
+ssh-add -l
 ```
 
-Reload SSH daemon:
-
-```console
-sudo service sshd reload
-```
-
-Remove YubiKey and reboot. Log back into Windows, open a WSL console and enter `ssh-add -l` - no output should appear.
-
-Plug in YubiKey, enter the same command to display the ssh key.
-
-Connect to the remote host and use `ssh-add -l` to confirm forwarding works.
-
-Agent forwarding may be chained through multiple hosts. Follow the same [protocol](#remote-host-configuration) to configure each host.
+This method allows simultaneous SSH use in PowerShell and WSL without attaching or detaching the YubiKey device between environments.
 
 An alternate method is the [usbipd-win](https://github.com/dorssel/usbipd-win) library. If you encounter issues with accessing the YubiKey in WSL after configuring usbipd-win, you may need to add custom polkit rules to ensure proper permissions for the pcscd service. Here's an example configuration using a scard group (the group logic is optional):
 
