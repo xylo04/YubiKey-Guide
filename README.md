@@ -1481,26 +1481,6 @@ ssh-add -l
 
 This method allows simultaneous SSH use in PowerShell and WSL without attaching or detaching the YubiKey device between environments.
 
-An alternate method is the [usbipd-win](https://github.com/dorssel/usbipd-win) library. If you encounter issues with accessing the YubiKey in WSL after configuring usbipd-win, you may need to add custom polkit rules to ensure proper permissions for the pcscd service. Here's an example configuration using a scard group (the group logic is optional):
-
-Create a new rule file at /etc/polkit-1/rules.d/99-pcscd.rules:
-
-```bash
-polkit.addRule(function(action, subject) {
-    if (action.id == "org.debian.pcsc-lite.access_card" &&
-        subject.isInGroup("scard")) {
-        return polkit.Result.YES;
-    }
-});
-
-polkit.addRule(function(action, subject) {
-    if (action.id == "org.debian.pcsc-lite.access_pcsc" &&
-        subject.isInGroup("scard")) {
-        return polkit.Result.YES;
-    }
-});
-```
-
 ### Replace agents
 
 To launch `gpg-agent` for use by SSH, use the `gpg-connect-agent /bye` or `gpgconf --launch gpg-agent` commands.
