@@ -1450,7 +1450,28 @@ git config --global core.sshCommand "C:/Windows/System32/OpenSSH/ssh.exe"
 
 The goal is to configure SSH inside WSL to use the Windows-hosted `gpg-agent.exe` through a relay.
 
-See the [WSL agent architecture](media/schema_gpg.png) illustration for an overview.
+The following diagram shows how the Windows `gpg-agent` pipe is bridged into WSL:
+
+```mermaid
+flowchart TD
+    subgraph Windows["Windows Host"]
+        YK["YubiKey\n(OpenPGP)"]
+        GPA["gpg-agent\n(GnuPG 2.4+)\nenable-win32-openssh-support"]
+        PIPE["Named pipe\n\\\\.\\pipe\\openssh-ssh-agent"]
+        WINCL["Windows OpenSSH / Git clients\n(SSH_AUTH_SOCK=\\\\.\\pipe\\openssh-ssh-agent)"]
+        YK --> GPA --> PIPE --> WINCL
+    end
+
+    subgraph WSL["WSL Linux"]
+        RELAY["npiperelay.exe\n(bridges Windows named pipe)"]
+        SOCAT["socat\n(exposes Unix socket)"]
+        SOCK["~/.ssh/agent.sock\n(SSH_AUTH_SOCK in WSL)"]
+        WSLCL["WSL ssh / git clients"]
+        RELAY --> SOCAT --> SOCK --> WSLCL
+    end
+
+    PIPE -- "//./pipe/openssh-ssh-agent" --> RELAY
+```
 
 WSL cannot natively consume Windows named pipes as Unix sockets, so bridge the Windows OpenSSH pipe into a WSL Unix socket with `socat` + `npiperelay.exe`.
 
