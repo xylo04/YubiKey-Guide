@@ -30,6 +30,9 @@ Cryptographic keys on YubiKey are [non-exportable](https://web.archive.org/web/2
    * [Signature](#signature)
    * [Configure touch](#configure-touch)
    * [SSH](#ssh)
+      + [MacOS](#macos)
+      + [Windows](#windows)
+        + [WSL](#wsl)
       + [Replace agents](#replace-agents)
       + [Copy public key](#copy-public-key)
       + [Import SSH keys](#import-ssh-keys)
@@ -1285,7 +1288,7 @@ wget https://raw.githubusercontent.com/drduh/YubiKey-Guide/master/config/gpg-age
 > [!TIP]
 > Set `pinentry-program` to `/usr/bin/pinentry-gnome3` for a GUI-based prompt.
 
-**macOS**
+### macOS
 
 Install pinentry with `brew install pinentry-mac` or `sudo port install pinentry` then edit `gpg-agent.conf` to set the `pinentry-program` path to:
 
@@ -1299,7 +1302,7 @@ To use graphical applications on macOS, [additional setup is required](https://j
 
 Create `$HOME/Library/LaunchAgents/gnupg.gpg-agent.plist` with the following contents:
 
-```
+```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -1327,13 +1330,13 @@ Create `$HOME/Library/LaunchAgents/gnupg.gpg-agent.plist` with the following con
 
 Load it:
 
-```console
+```zsh
 launchctl load $HOME/Library/LaunchAgents/gnupg.gpg-agent.plist
 ```
 
 Create `$HOME/Library/LaunchAgents/gnupg.gpg-agent-symlink.plist` with the following contens:
 
-```
+```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/ProperyList-1.0/dtd">
 <plist version="1.0">
@@ -1354,57 +1357,48 @@ Create `$HOME/Library/LaunchAgents/gnupg.gpg-agent-symlink.plist` with the follo
 
 Load it:
 
-```console
+```zsh
 launchctl load $HOME/Library/LaunchAgents/gnupg.gpg-agent-symlink.plist
 ```
 
 Reboot to activate changes.
 
-**Windows**
+### Windows
 
 Windows can already have some virtual smart card readers installed, like the one provided for Windows Hello. To verify YubiKey is the correct one used by scdaemon, add it to its configuration.
 
 Find the YubiKey label using PowerShell:
 
 ```powershell
-PS C:\WINDOWS\system32> Get-PnpDevice -Class SoftwareDevice | Where-Object {$_.FriendlyName -like "*YubiKey*"} | Select-Object -ExpandProperty FriendlyName
+Get-PnpDevice -Class SoftwareDevice | Where-Object {$_.FriendlyName -like "*YubiKey*"} | Select-Object -ExpandProperty FriendlyName
+
 Yubico YubiKey OTP+FIDO+CCID 0
 ```
 
-See [How to setup Signed Git Commits with a YubiKey NEO and GPG and Keybase on Windows (2018)](https://www.hanselman.com/blog/HowToSetupSignedGitCommitsWithAYubiKeyNEOAndGPGAndKeybaseOnWindows.aspx) for more information.
-
 Edit `%APPDATA%/gnupg/scdaemon.conf` to add:
 
-```console
-reader-port <device name, e.g. Yubico YubiKey OTP+FIDO+CCID 0>
+```
+reader-port "Yubico YubiKey OTP+FIDO+CCID 0"
 ```
 
-To avoid `invalid format` and `communication with agent failed` errors, configure GnuPG as the system OpenSSH agent source of truth.
-
-Disable the `OpenSSH Authentication Agent` service in `services.msc` so it does not compete with GnuPG for `\\.\pipe\openssh-ssh-agent`.
+To avoid `invalid format` and `communication with agent failed` errors, configure GnuPG as the system OpenSSH agent source of truth. In `services.msc`, disable the `OpenSSH Authentication Agent` service so it does not compete with GnuPG for `\\.\pipe\openssh-ssh-agent`.
 
 Edit `%APPDATA%/gnupg/gpg-agent.conf` to add:
 
-```console
+```
 enable-ssh-support
 enable-win32-openssh-support
 ```
 
-Set a User Environment Variable:
+Set a [User Environment Variable](https://www.tenforums.com/tutorials/121855-edit-user-system-environment-variables-windows.html):
 
-```console
-SSH_AUTH_SOCK=\\.\pipe\openssh-ssh-agent
 ```
-
-Force Git for Windows to use the system-native OpenSSH client:
-
-```powershell
-git config --global core.sshCommand "C:/Windows/System32/OpenSSH/ssh.exe"
+SSH_AUTH_SOCK = \\.\pipe\openssh-ssh-agent
 ```
 
 Restart gpg-agent:
 
-```console
+```powershell
 gpg-connect-agent killagent /bye
 
 gpg-connect-agent /bye
@@ -1412,41 +1406,47 @@ gpg-connect-agent /bye
 
 Verify the SSH agent has identities:
 
-```console
+```powershell
 ssh-add -L
 ```
 
 Verify YubiKey details:
 
-```console
+```powershell
 gpg --card-status
 ```
 
 Import the public key and set ultimate trust:
 
-```console
+```powershell
 gpg --import <path to public key file>
 ```
 
 Retrieve the public key id:
 
-```console
+```powershell
 gpg --list-public-keys
 ```
 
 Export the SSH public key:
 
-```console
+```powershell
 gpg --export-ssh-key <public key id>
 ```
 
 Copy the public SSH key to a file - it corresponds to the secret key on YubiKey and can be copied to SSH destination hosts.
 
-Create a shortcut that points to `gpg-connect-agent /bye` and place it in the startup folder `shell:startup` to make sure the agent starts after reboot. Modify the shortcut properties so it starts in a "Minimized" window.
+Open the Startup folder (`[Win+R]` and run `shell:startup`) and create a shortcut that points to `gpg-connect-agent /bye` to make sure the agent starts after reboot. Modify the shortcut properties so it starts in a "Minimized" window.
 
-PuTTY can now be used for public-key SSH authentication. When the server asks for public-key verification, PuTTY will forward the request to GnuPG, which will prompt for a PIN to authorize the operation.
+OpenSSH can now be used for public-key SSH authentication. When the server asks for public-key verification, OpenSSH will forward the request to GnuPG, which will prompt for a PIN to authorize the operation.
 
-**WSL**
+If using Git for Windows, tell it to use the OpenSSH client:
+
+```powershell
+git config --global core.sshCommand "C:/Windows/System32/OpenSSH/ssh.exe"
+```
+
+#### WSL
 
 The goal is to configure SSH inside WSL to use the Windows-hosted `gpg-agent.exe` through a relay.
 
@@ -1454,9 +1454,10 @@ See the [WSL agent architecture](media/schema_gpg.png) illustration for an overv
 
 WSL cannot natively consume Windows named pipes as Unix sockets, so bridge the Windows OpenSSH pipe into a WSL Unix socket with `socat` + `npiperelay.exe`.
 
-Install `socat` in WSL and download [jstarks/npiperelay](https://github.com/jstarks/npiperelay/releases) to a Windows path, for example `C:\bin\npiperelay.exe`.
+* In WSL, install `socat`
+* In Windows, download [jstarks/npiperelay](https://github.com/jstarks/npiperelay/releases) to a findable path, for example `C:\bin\npiperelay.exe`.
 
-Add the following to `~/.bashrc` (update the `NPIPERELAY` path if needed):
+In WSL add the following to `~/.bashrc` (update the `NPIPERELAY` path if needed):
 
 ```bash
 export SSH_AUTH_SOCK=$HOME/.ssh/agent.sock
@@ -1469,13 +1470,13 @@ fi
 
 Reload your shell:
 
-```console
+```bash
 source ~/.bashrc
 ```
 
 Confirm the relay works:
 
-```console
+```bash
 ssh-add -l
 ```
 
