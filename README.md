@@ -1365,7 +1365,15 @@ Reboot to activate changes.
 
 ### Windows
 
-Windows can already have some virtual smart card readers installed, like the one provided for Windows Hello. To verify YubiKey is the correct one used by scdaemon, add it to its configuration.
+Download and install Gpg4Win.
+
+```powershell
+winget install -e --id GnuPG.Gpg4win
+```
+
+One of the packaged programs is Kleopatra, a GnuGP GUI; opening that will generate some initial configurations.
+
+Windows may already have some virtual smart card readers installed, like the one provided for Windows Hello. To verify YubiKey is the correct one used by scdaemon, add it to its configuration.
 
 Find the YubiKey label using PowerShell:
 
