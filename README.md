@@ -1418,30 +1418,6 @@ Verify the SSH agent has identities:
 ssh-add -L
 ```
 
-Verify YubiKey details:
-
-```powershell
-gpg --card-status
-```
-
-Import the public key and set ultimate trust:
-
-```powershell
-gpg --import <path to public key file>
-```
-
-Retrieve the public key id:
-
-```powershell
-gpg --list-public-keys
-```
-
-Export the SSH public key:
-
-```powershell
-gpg --export-ssh-key <public key id>
-```
-
 Copy the public SSH key to a file - it corresponds to the secret key on YubiKey and can be copied to SSH destination hosts.
 
 Open the Startup folder (`[Win+R]` and run `shell:startup`) and create a shortcut that points to `gpg-connect-agent /bye` to make sure the agent starts after reboot. Modify the shortcut properties so it starts in a "Minimized" window.
